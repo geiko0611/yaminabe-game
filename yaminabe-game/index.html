@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>闇鍋ゲーム v4</title>
+    <style>
+        body { font-family: "Helvetica Neue", Arial, sans-serif; background-color: #222; color: #fff; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* レイアウト: メイン画面とスコアボード */
+        #main-area { flex: 1; padding: 20px; overflow-y: auto; text-align: center; position: relative; }
+        #sidebar { 
+            width: 320px; 
+            background-color: #2d2d2d; 
+            border-left: 1px solid #444; 
+            overflow-y: auto; 
+            display: flex; 
+            flex-direction: column;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.3);
+        }
+
+        h1 { margin-top: 0; font-size: 1.5em; letter-spacing: 2px; }
+        
+        /* サイドバー（具材リスト）のデザイン */
+        .sidebar-header {
+            padding: 15px;
+            background-color: #222;
+            border-bottom: 1px solid #444;
+            text-align: center;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .legend-group {
+            padding: 10px;
+            border-bottom: 1px solid #3d3d3d;
+        }
+        .legend-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .legend-icon-container {
+            width: 50px;
+            text-align: center;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        .legend-info {
+            flex-grow: 1;
+            font-size: 0.85em;
+        }
+        .legend-title {
+            font-weight: bold;
+            color: #ddd;
+            margin-bottom: 2px;
+            font-size: 0.95em;
+        }
+        .legend-detail {
+            color: #aaa;
+            line-height: 1.3;
+        }
+        .pt-plus { color: #81c784; }
+        .pt-minus { color: #e57373; }
+        .pt-bad { color: #ef5350; font-weight: bold; }
+        .pt-great { color: #ffd54f; font-weight: bold;}
+
+        /* 具材アイコン（共通） */
+        .ingredient {
+            width: 36px;
+            height: 36px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+            position: relative;
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+            font-size: 9px;
+            color: #000;
+            font-weight: bold;
+            text-align: center;
+            overflow: hidden;
+            margin: 2px;
+        }
+        
+        /* 盤面上の具材は少し大きく */
+        #pot-area .ingredient, .player-area .ingredient {
+            width: 45px;
+            height: 45px;
+            margin: 5px;
+        }
+
+        /* 形の定義 */
+        .shape-sphere { border-radius: 50%; }
+        .shape-cube { border-radius: 3px; }
+        .shape-pyramid { 
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+            width: 40px; height: 36px; /* 縦横比調整 */
+            border-radius: 0;
+        }
+        /* 盤面上の三角 */
+        #pot-area .shape-pyramid, .player-area .shape-pyramid {
+            width: 50px; height: 45px;
+        }
+
+        /* 色の定義 */
+        .color-red { background-color: #ff6b6b; }
+        .color-green { background-color: #69f0ae; }
+        .color-yellow { background-color: #ffd740; }
+        .color-white { background-color: #f5f5f5; border: 1px solid #999; }
+        .color-brown { background-color: #795548; border: 1px solid #d7ccc8; color: #fff; }
+
+        /* エリア定義 */
+        #pot-area {
+            background-color: #3e2723;
+            border-radius: 50%;
+            width: 400px;
+            height: 400px;
+            margin: 10px auto;
+            padding: 40px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-content: center;
+            border: 8px solid #5d4037;
+            box-shadow: inset 0 0 40px #000;
+        }
+
+        .player-area {
+            border: 1px solid #555;
+            margin: 5px;
+            padding: 8px;
+            border-radius: 8px;
+            background-color: #2a2a2a;
+            display: inline-block;
+            vertical-align: top;
+            width: 45%;
+            min-height: 80px;
+        }
+        .active-turn { border: 2px solid #69f0ae; background-color: #333; box-shadow: 0 0 10px rgba(105, 240, 174, 0.3); }
+        
+        button { padding: 10px 24px; font-size: 16px; cursor: pointer; background-color: #eee; border: none; border-radius: 4px; margin-top: 10px; color:#333; font-weight: bold;}
+        button:hover { background-color: #fff; }
+
+        #log { margin-top: 20px; color: #888; font-size: 0.85em; height: 80px; overflow-y: scroll; border-top: 1px solid #444; text-align: left; padding: 10px; font-family: monospace;}
+        .hidden { display: none; }
+        .revealed-name { font-size: 9px; line-height: 1; pointer-events: none;}
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <div class="sidebar-header">🍲 具材・得点表</div>
+    <div id="legend-container">
+        </div>
+</div>
+
+<div id="main-area">
+    <h1>闇鍋ゲーム</h1>
+    
+    <div id="setup-screen">
+        <p>プレイヤー人数を選択してください</p>
+        <select id="player-count" style="padding:5px; font-size:1.2em;">
+            <option value="2">2人</option>
+            <option value="3">3人</option>
+            <option value="4" selected>4人</option>
+            <option value="5">5人</option>
+            <option value="6">6人</option>
+        </select>
+        <br><br>
+        <button onclick="startGame()">ゲーム開始</button>
+        <p style="color:#aaa;"><small>全40個の具材から、人数×5個を使用します。<br>残りはゲームに使われません。</small></p>
+    </div>
+
+    <div id="game-screen" class="hidden">
+        <h2 id="phase-display">フェーズ2: 鍋から具材をすくう</h2>
+        <p id="instruction">準備中...</p>
+        
+        <div>
+            <div id="pot-area"></div>
+            <div style="margin-top:5px; color:#aaa;">鍋の残り: <span id="pot-count" style="font-weight:bold; color:#fff;">0</span> 個</div>
+        </div>
+
+        <div id="players-container" style="margin-top:20px;"></div>
+    </div>
+
+    <div id="result-screen" class="hidden">
+        <h2>実食タイム終了！結果発表</h2>
+        <div id="result-list"></div>
+        <button onclick="location.reload()">もう一度遊ぶ</button>
+    </div>
+
+    <div id="log"></div>
+</div>
+
+<script>
+    /* =========================================
+       データ定義
+       ========================================= */
+    
+    // 基本具材（36個）
+    const INGREDIENT_DEFINITIONS = [
+        // 赤 (Red)
+        { color: 'red', shape: 'sphere', total: 3, items: [{name:'トマト', score:1, count:2}, {name:'いちご', score:2, count:1}] },
+        { color: 'red', shape: 'pyramid', total: 3, items: [{name:'にんじん', score:1, count:3}] },
+        { color: 'red', shape: 'cube', total: 3, items: [{name:'生肉', score:-2, count:2}, {name:'カニ', score:3, count:1}] },
+        
+        // 緑 (Green)
+        { color: 'green', shape: 'sphere', total: 3, items: [{name:'ネギ', score:1, count:2}, {name:'キウイ', score:2, count:1}] },
+        { color: 'green', shape: 'pyramid', total: 3, items: [{name:'キャベツ', score:1, count:2}, {name:'スライム', score:-2, count:1}] },
+        { color: 'green', shape: 'cube', total: 3, items: [{name:'ニラ', score:1, count:3}] },
+
+        // 黄 (Yellow)
+        { color: 'yellow', shape: 'sphere', total: 3, items: [{name:'ジャガイモ', score:1, count:3}] },
+        { color: 'yellow', shape: 'pyramid', total: 3, items: [{name:'かぼちゃ', score:1, count:2}, {name:'パイナップル', score:2, count:1}] },
+        { color: 'yellow', shape: 'cube', total: 3, items: [{name:'厚揚げ', score:1, count:2}, {name:'スポンジ', score:-2, count:1}] },
+
+        // 白 (White)
+        { color: 'white', shape: 'sphere', total: 3, items: [{name:'ゆで卵', score:1, count:2}, {name:'白桃', score:2, count:1}] },
+        { color: 'white', shape: 'pyramid', total: 3, items: [{name:'大根', score:1, count:2}, {name:'ニンニク', score:1, count:1}] },
+        { color: 'white', shape: 'cube', total: 3, items: [{name:'豆腐', score:1, count:2}, {name:'餅', score:2, count:1}] },
+    ];
+
+    // スペシャル具材（茶色は形がランダムなので別枠定義、合計4個）
+    const BROWN_ITEMS = [
+        {name:'黒毛和牛', score:4, count:2},
+        {name:'ゴキブリ', score:-4, count:2}
+    ];
+
+    const SHAPES = ['sphere', 'cube', 'pyramid'];
+    
+    /* =========================================
+       ゲームロジック
+       ========================================= */
+
+    let players = [];
+    let potIngredients = [];
+    let currentPlayerIndex = 0;
+    let phase = 0;
+
+    // ログ表示
+    function log(msg) {
+        const el = document.getElementById('log');
+        el.innerHTML = `<div><span style="color:#666">[${new Date().toLocaleTimeString().slice(3,8)}]</span> ${msg}</div>` + el.innerHTML;
+    }
+
+    // 具材クラス
+    class Ingredient {
+        constructor(shape, color, name, score, isRevealed = false) {
+            this.shape = shape;
+            this.color = color;
+            this.name = name;
+            this.score = score;
+            this.isRevealed = isRevealed;
+            this.id = Math.random().toString(36).substr(2, 9);
+        }
+
+        getElement(onClick, enableClick = true) {
+            const el = document.createElement('div');
+            el.className = `ingredient shape-${this.shape} color-${this.color}`;
+            
+            // ツールチップ
+            if(this.isRevealed) {
+                el.title = `${this.name} (${this.score}点)`;
+                const text = document.createElement('span');
+                text.className = 'revealed-name';
+                text.innerText = this.name;
+                el.appendChild(text);
+            } else {
+                el.title = `色:${this.color} 形:${this.shape}`;
+            }
+
+            if (enableClick && onClick) el.onclick = () => onClick(this);
+            return el;
+        }
+    }
+
+    // デッキ生成
+    function generateIngredientDeck() {
+        let deck = [];
+        
+        // 1. 基本具材
+        INGREDIENT_DEFINITIONS.forEach(def => {
+            def.items.forEach(itemInfo => {
+                for(let i=0; i<itemInfo.count; i++){
+                    deck.push(new Ingredient(def.shape, def.color, itemInfo.name, itemInfo.score));
+                }
+            });
+        });
+
+        // 2. 茶色具材（形をランダム割り当て）
+        BROWN_ITEMS.forEach(itemInfo => {
+            for(let i=0; i<itemInfo.count; i++){
+                const randomShape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+                deck.push(new Ingredient(randomShape, 'brown', itemInfo.name, itemInfo.score));
+            }
+        });
+
+        return deck;
+    }
+
+    // サイドバーの描画（得点表）
+    function renderLegend() {
+        const container = document.getElementById('legend-container');
+        container.innerHTML = '';
+
+        // 点数に色をつけるヘルパー
+        const fmtScore = (score) => {
+            let cls = '';
+            if(score >= 4) cls = 'pt-great';
+            else if(score > 0) cls = 'pt-plus';
+            else if(score <= -4) cls = 'pt-bad';
+            else cls = 'pt-minus';
+            return `<span class="${cls}">${score > 0 ? '+' : ''}${score}</span>`;
+        };
+
+        // 1. 基本具材のリスト生成
+        INGREDIENT_DEFINITIONS.forEach(def => {
+            const row = document.createElement('div');
+            row.className = 'legend-group';
+            
+            // 内訳テキスト生成
+            const itemsText = def.items.map(it => `${it.name}(${fmtScore(it.score)})×${it.count}`).join(', ');
+
+            row.innerHTML = `
+                <div class="legend-row">
+                    <div class="legend-icon-container">
+                        <div class="ingredient shape-${def.shape} color-${def.color}"></div>
+                    </div>
+                    <div class="legend-info">
+                        <div class="legend-title">計${def.total}個</div>
+                        <div class="legend-detail">${itemsText}</div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(row);
+        });
+
+        // 2. 茶色（スペシャル）のリスト生成
+        const brownRow = document.createElement('div');
+        brownRow.className = 'legend-group';
+        const brownItemsText = BROWN_ITEMS.map(it => `${it.name}(${fmtScore(it.score)})×${it.count}`).join('<br>');
+        
+        brownRow.innerHTML = `
+             <div class="legend-row">
+                <div class="legend-icon-container">
+                    <div class="ingredient shape-sphere color-brown" style="border-radius:20%">?</div>
+                </div>
+                <div class="legend-info">
+                    <div class="legend-title" style="color:#ffcc80">SP: 茶色 (形はランダム)</div>
+                    <div class="legend-detail" style="font-size:1em;">${brownItemsText}</div>
+                </div>
+            </div>
+        `;
+        container.appendChild(brownRow);
+    }
+
+    // ゲーム開始処理
+    function startGame() {
+        const count = parseInt(document.getElementById('player-count').value);
+        
+        players = [];
+        for(let i=0; i<count; i++) {
+            players.push({ id: i, name: `プレイヤー${i+1}`, bowl: [], score: 0 });
+        }
+
+        let allIngredients = generateIngredientDeck();
+        log(`デッキ生成完了: 合計${allIngredients.length}個`);
+        
+        // シャッフル
+        allIngredients.sort(() => Math.random() - 0.5);
+
+        // 鍋に投入
+        const requiredIngredients = count * 5;
+        potIngredients = allIngredients.slice(0, requiredIngredients);
+
+        document.getElementById('setup-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+        
+        renderLegend(); // 得点表描画
+        startScoopingPhase();
+    }
+
+    // フェーズ2
+    function startScoopingPhase() {
+        phase = 2;
+        updateBoard();
+    }
+
+    // 具材選択
+    function scoopIngredient(ingredient) {
+        if (phase !== 2) return;
+
+        const index = potIngredients.findIndex(i => i.id === ingredient.id);
+        if (index === -1) return;
+        potIngredients.splice(index, 1);
+
+        const player = players[currentPlayerIndex];
+        player.bowl.push(ingredient);
+        
+        log(`${player.name} が選択しました。`);
+
+        currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+
+        if (potIngredients.length === 0) {
+            startEatingPhase();
+        } else {
+            updateBoard();
+        }
+    }
+
+    // 盤面更新
+    function updateBoard() {
+        const potEl = document.getElementById('pot-area');
+        potEl.innerHTML = '';
+        document.getElementById('pot-count').innerText = potIngredients.length;
+
+        potIngredients.forEach(ing => {
+            potEl.appendChild(ing.getElement((i) => scoopIngredient(i), true));
+        });
+
+        const playersEl = document.getElementById('players-container');
+        playersEl.innerHTML = '';
+        players.forEach((p, idx) => {
+            const pDiv = document.createElement('div');
+            pDiv.className = `player-area ${idx === currentPlayerIndex ? 'active-turn' : ''}`;
+            
+            let html = `<strong>${p.name}</strong>`;
+            if(idx === currentPlayerIndex) html += " <span style='color:#69f0ae; font-size:0.8em'>◀ 選択中</span>";
+            pDiv.innerHTML = html;
+            
+            const bowlDiv = document.createElement('div');
+            p.bowl.forEach(ing => {
+                const ingEl = ing.getElement(null, false);
+                ingEl.style.transform = "scale(0.8)";
+                ingEl.style.margin = "2px";
+                bowlDiv.appendChild(ingEl);
+            });
+            pDiv.appendChild(bowlDiv);
+            playersEl.appendChild(pDiv);
+        });
+        
+        document.getElementById('instruction').innerText = `👉 ${players[currentPlayerIndex].name} の番です。鍋から具材を選んでください。`;
+    }
+
+    // フェーズ3: 実食
+    function startEatingPhase() {
+        phase = 3;
+        document.getElementById('game-screen').classList.add('hidden');
+        document.getElementById('result-screen').classList.remove('hidden');
+
+        players.forEach(p => {
+            p.bowl.forEach(ing => ing.isRevealed = true);
+            p.score = p.bowl.reduce((sum, ing) => sum + ing.score, 0);
+        });
+
+        players.sort((a, b) => b.score - a.score);
+
+        const resultList = document.getElementById('result-list');
+        let html = '<table border="1" cellpadding="8" style="margin: 0 auto; border-collapse: collapse; width: 95%; background-color:#333; color:#fff;">';
+        html += '<tr style="background-color:#444;"><th>順位</th><th>名前</th><th>得点</th><th>食べた具材</th></tr>';
+
+        players.forEach((p, rank) => {
+            html += `<tr>
+                <td style="font-size:1.2em; font-weight:bold; text-align:center;">${rank + 1}位</td>
+                <td style="text-align:center;">${p.name}</td>
+                <td style="font-size:1.3em; font-weight:bold; color:#ffd54f; text-align:center;">${p.score}</td>
+                <td style="text-align:left;">
+                    <div style="display:flex; flex-wrap:wrap; justify-content:center;">
+                   ${p.bowl.map(i => i.getElement(null, false).outerHTML).join('')}
+                   </div>
+                </td>
+            </tr>`;
+        });
+        html += '</table>';
+        resultList.innerHTML = html;
+    }
+    
+    // 初期表示でリストだけ描画しておく
+    renderLegend();
+
+</script>
+
+</body>
+</html>
