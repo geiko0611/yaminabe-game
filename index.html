@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>闇鍋ゲーム (即時開示ver)</title>
+    <title>闇鍋ゲーム (新具材ver)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { font-family: "Helvetica Neue", Arial, sans-serif; background-color: #222; color: #fff; margin: 0; display: flex; height: 100vh; overflow: hidden; }
@@ -10,11 +10,11 @@
         /* レイアウト */
         #main-area { flex: 1; padding: 10px; overflow-y: auto; text-align: center; position: relative; }
         #sidebar { 
-            width: 280px; 
+            width: 300px; 
             background-color: #2d2d2d; 
             border-left: 1px solid #444; 
             overflow-y: auto; 
-            display: none; /* スマホ用に初期は隠す */
+            display: none; 
             flex-direction: column;
             box-shadow: -5px 0 15px rgba(0,0,0,0.3);
         }
@@ -22,76 +22,94 @@
 
         h1 { margin: 10px 0; font-size: 1.2em; letter-spacing: 2px; }
         
-        /* 共通スタイル */
+        /* ボタンなど */
         button { padding: 12px 24px; font-size: 16px; cursor: pointer; background-color: #eee; border: none; border-radius: 4px; margin: 10px; color:#333; font-weight: bold;}
         button:hover { background-color: #fff; }
         .hidden { display: none !important; }
 
         /* 具材スタイル */
         .ingredient {
-            width: 42px; height: 42px;
+            width: 44px; height: 44px;
             display: inline-flex; justify-content: center; align-items: center;
             cursor: pointer; position: relative;
-            box-shadow: 1px 1px 3px rgba(0,0,0,0.5);
-            font-size: 9px; color: #000; font-weight: bold; overflow: hidden; margin: 3px;
+            box-shadow: 1px 1px 4px rgba(0,0,0,0.6);
+            font-size: 9px; color: #000; font-weight: bold; overflow: hidden; margin: 4px;
+            transition: transform 0.1s;
         }
+        .ingredient:hover { transform: scale(1.1); z-index: 10; }
+
+        /* 形の定義 */
         .shape-sphere { border-radius: 50%; }
-        .shape-cube { border-radius: 3px; }
-        .shape-pyramid { clip-path: polygon(50% 0%, 0% 100%, 100% 100%); width: 46px; height: 42px; border-radius: 0;}
+        .shape-cube { border-radius: 4px; }
+        .shape-pyramid { 
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%); 
+            width: 48px; height: 44px; 
+            border-radius: 0;
+            padding-top: 10px; /* 文字位置調整 */
+        }
         
-        .color-red { background-color: #ff6b6b; }
+        /* 色の定義 */
+        .color-white { background-color: #f5f5f5; border: 1px solid #bbb; }
         .color-green { background-color: #69f0ae; }
-        .color-yellow { background-color: #ffd740; }
-        .color-white { background-color: #f5f5f5; border: 1px solid #999; }
+        .color-red { background-color: #ff5252; }
         .color-brown { background-color: #795548; border: 1px solid #d7ccc8; color: #fff; }
 
-        /* 正体判明時のテキスト表示 */
-        .revealed-name-container {
-            position: absolute; top:0; left:0; width:100%; height:100%;
-            display: flex; justify-content: center; align-items: center;
+        /* 具材名表示（すくった後） */
+        .revealed-content {
+            font-size: 9px; line-height: 1.1; text-align: center; word-break: break-all;
+            width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
             pointer-events: none;
-            background-color: rgba(255,255,255,0.3); /* 少し明るく */
         }
-        .revealed-name { 
-            font-size: 8px; line-height: 1.1; text-align: center; word-break: break-all; 
-            color: #000; text-shadow: 0 0 2px rgba(255,255,255,0.8);
+        .shape-pyramid .revealed-content {
+            padding-top: 10px; /* 三角形用の位置調整 */
         }
-
+        
+        /* 鍋エリア */
         #pot-area {
             background-color: #3e2723; border-radius: 50%;
-            width: 300px; height: 300px; margin: 10px auto; padding: 20px;
+            width: 320px; height: 320px; margin: 10px auto; padding: 30px;
             display: flex; flex-wrap: wrap; justify-content: center; align-content: center;
-            border: 6px solid #5d4037; box-shadow: inset 0 0 40px #000;
+            border: 8px solid #5d4037; box-shadow: inset 0 0 50px #000;
         }
 
+        /* プレイヤーエリア */
         .player-area {
-            border: 1px solid #555; margin: 5px; padding: 5px; border-radius: 8px;
+            border: 1px solid #555; margin: 5px; padding: 8px; border-radius: 8px;
             background-color: #2a2a2a; display: inline-block; vertical-align: top;
-            width: 45%; min-height: 80px; font-size: 0.9em;
+            width: 45%; min-height: 90px; font-size: 0.9em;
         }
         .active-turn { border: 2px solid #69f0ae; background-color: #333; box-shadow: 0 0 10px rgba(105, 240, 174, 0.3); }
 
-        #log { margin-top: 20px; color: #aaa; font-size: 0.8em; height: 100px; overflow-y: auto; border-top: 1px solid #444; text-align: left; padding: 10px; font-family: monospace;}
+        /* ログ */
+        #log { margin-top: 20px; color: #aaa; font-size: 0.85em; height: 100px; overflow-y: auto; border-top: 1px solid #444; text-align: left; padding: 10px; font-family: monospace;}
         
-        /* サイドバー用 */
-        .sidebar-header { padding: 10px; background-color: #222; text-align: center; font-weight: bold; }
-        .legend-row { display: flex; align-items: center; margin: 5px 10px; border-bottom: 1px solid #444; padding-bottom: 5px;}
-        .legend-info { font-size: 0.8em; margin-left: 10px; }
+        /* サイドバー */
+        .sidebar-header { padding: 15px; background-color: #222; text-align: center; font-weight: bold; border-bottom: 1px solid #444; }
+        .legend-group { padding: 10px; border-bottom: 1px solid #444; }
+        .legend-title { display: flex; align-items: center; margin-bottom: 5px; font-weight: bold; font-size: 0.9em;}
+        .legend-items { font-size: 0.8em; color: #ccc; line-height: 1.4; padding-left: 5px;}
+        
+        /* 得点の色分け */
+        .pt-plus { color: #81c784; }
+        .pt-minus { color: #e57373; }
+        .pt-bad { color: #ef5350; font-weight: bold; }
+        .pt-great { color: #ffd54f; font-weight: bold;}
     </style>
 </head>
 <body>
 
 <div id="sidebar">
-    <div class="sidebar-header">得点表</div>
+    <div class="sidebar-header">🍲 具材・得点表</div>
     <div id="legend-container"></div>
 </div>
 
 <div id="main-area">
-    <h1>闇鍋ゲーム (即時開示)</h1>
+    <h1>闇鍋ゲーム</h1>
     
     <div id="setup-screen">
-        <p>プレイヤー人数を選択してください</p>
-        <select id="player-count" style="padding:10px; font-size:1.2em;">
+        <p>プレイヤー人数</p>
+        <select id="player-count" style="padding:10px; font-size:1.2em; width: 100px;">
             <option value="2">2人</option>
             <option value="3">3人</option>
             <option value="4" selected>4人</option>
@@ -100,7 +118,11 @@
         </select>
         <br><br>
         <button onclick="startGame()">ゲーム開始</button>
-        <p style="color:#aaa;"><small>全40個の具材からランダムに使用します</small></p>
+        <p style="color:#aaa; font-size:0.9em;">
+            全40個前後の具材から、<br>
+            人数×5個を使用します。<br>
+            (残りは使用しません)
+        </p>
     </div>
 
     <div id="game-screen" class="hidden">
@@ -109,10 +131,10 @@
         
         <div>
             <div id="pot-area"></div>
-            <div style="color:#aaa;">鍋の残り: <span id="pot-count">0</span> 個</div>
+            <div style="color:#aaa; margin-top:5px;">鍋の残り: <span id="pot-count" style="font-weight:bold; color:#fff;">0</span> 個</div>
         </div>
 
-        <div id="players-container" style="margin-top:10px;"></div>
+        <div id="players-container" style="margin-top:20px;"></div>
     </div>
 
     <div id="result-screen" class="hidden">
@@ -126,29 +148,67 @@
 
 <script>
     /* =========================================
-       データ定義
+       データ定義 (新具材リスト)
+       ※countは出現確率の重みとして設定しています
        ========================================= */
     const INGREDIENT_DEFINITIONS = [
-        { color: 'red', shape: 'sphere', items: [{name:'トマト', score:1, count:2}, {name:'いちご', score:2, count:1}] },
-        { color: 'red', shape: 'pyramid', items: [{name:'にんじん', score:1, count:3}] },
-        { color: 'red', shape: 'cube', items: [{name:'生肉', score:-2, count:2}, {name:'カニ', score:3, count:1}] },
-        { color: 'green', shape: 'sphere', items: [{name:'ネギ', score:1, count:2}, {name:'キウイ', score:2, count:1}] },
-        { color: 'green', shape: 'pyramid', items: [{name:'キャベツ', score:1, count:2}, {name:'スライム', score:-2, count:1}] },
-        { color: 'green', shape: 'cube', items: [{name:'ニラ', score:1, count:3}] },
-        { color: 'yellow', shape: 'sphere', items: [{name:'ジャガイモ', score:1, count:3}] },
-        { color: 'yellow', shape: 'pyramid', items: [{name:'かぼちゃ', score:1, count:2}, {name:'パイナップル', score:2, count:1}] },
-        { color: 'yellow', shape: 'cube', items: [{name:'厚揚げ', score:1, count:2}, {name:'スポンジ', score:-2, count:1}] },
-        { color: 'white', shape: 'sphere', items: [{name:'ゆで卵', score:1, count:2}, {name:'白桃', score:2, count:1}] },
-        { color: 'white', shape: 'pyramid', items: [{name:'大根', score:1, count:2}, {name:'ニンニク', score:1, count:1}] },
-        { color: 'white', shape: 'cube', items: [{name:'豆腐', score:1, count:2}, {name:'餅', score:2, count:1}] },
+        // 1. 白い立方体 (安牌)
+        { 
+            label: "白い立方体 (安牌)",
+            color: 'white', shape: 'cube', 
+            items: [
+                {name:'卵', score:1, count:2},
+                {name:'大根', score:1, count:2},
+                {name:'豆腐', score:1, count:2},
+                {name:'白桃', score:2, count:1},
+                {name:'餅', score:2, count:1},
+                {name:'にんにく', score:1, count:1},
+                {name:'ティッシュ', score:-1, count:1} // NEW
+            ]
+        },
+        // 2. 緑の三角錐 (普通)
+        { 
+            label: "緑の三角錐 (普通)",
+            color: 'green', shape: 'pyramid', 
+            items: [
+                {name:'ねぎ', score:1, count:2},
+                {name:'キャベツ', score:1, count:2},
+                {name:'ニラ', score:1, count:2},
+                {name:'キウイ', score:2, count:1},
+                {name:'スライム', score:-2, count:1}
+            ]
+        },
+        // 3. 赤い球 (ちょっと危険)
+        { 
+            label: "赤い球 (ちょっと危険)",
+            color: 'red', shape: 'sphere', 
+            items: [
+                {name:'トマト', score:1, count:2},
+                {name:'にんじん', score:1, count:2},
+                {name:'いちご', score:2, count:1},
+                {name:'カニ', score:3, count:1},
+                {name:'生肉', score:-2, count:2},
+                {name:'唐辛子', score:-2, count:1} // NEW
+            ]
+        },
+        // 4. 茶色い三角錐 (ヤバス)
+        { 
+            label: "茶色い三角錐 (ヤバス)",
+            color: 'brown', shape: 'pyramid', 
+            items: [
+                {name:'黒毛和牛', score:4, count:1},
+                {name:'松茸', score:3, count:1}, // NEW
+                {name:'ゴキブリ', score:-4, count:1},
+                {name:'たわし', score:-3, count:1}, // NEW
+                {name:'タイヤ', score:-4, count:1}  // NEW
+            ]
+        }
     ];
-    const BROWN_ITEMS = [{name:'黒毛和牛', score:4, count:2}, {name:'ゴキブリ', score:-4, count:2}];
-    const SHAPES = ['sphere', 'cube', 'pyramid'];
 
     let players = [];
     let potIngredients = [];
     let currentPlayerIndex = 0;
-    let phase = 0; // 0:setup, 2:scoop, 3:result
+    let phase = 0;
 
     // ログ機能
     function log(msg) {
@@ -164,7 +224,7 @@
             this.color = color;
             this.name = name;
             this.score = score;
-            this.isRevealed = false; // 初期状態は隠されている
+            this.isRevealed = false;
             this.id = Math.random().toString(36).substr(2, 9);
         }
 
@@ -172,12 +232,20 @@
             const el = document.createElement('div');
             el.className = `ingredient shape-${this.shape} color-${this.color}`;
             
-            // 正体がバレている場合、名前を表示
             if(this.isRevealed) {
+                // 正体判明時
                 el.title = `${this.name} (${this.score}点)`;
-                el.innerHTML = `<div class="revealed-name-container"><span class="revealed-name">${this.name}<br>(${this.score})</span></div>`;
+                // 文字色調整
+                const textColor = (this.color === 'brown' || this.color === 'red') ? '#fff' : '#000';
+                
+                el.innerHTML = `
+                    <div class="revealed-content" style="color:${textColor}">
+                        <span>${this.name}</span>
+                        <span style="font-size:0.9em; font-weight:bold;">${this.score}</span>
+                    </div>`;
             } else {
-                el.title = `色:${this.color} 形:${this.shape}`;
+                // 隠蔽時
+                el.title = `?`;
             }
 
             if (enableClick && onClick) el.onclick = () => onClick(this);
@@ -190,14 +258,10 @@
         let deck = [];
         INGREDIENT_DEFINITIONS.forEach(def => {
             def.items.forEach(item => {
-                for(let i=0; i<item.count; i++) deck.push(new Ingredient(def.shape, def.color, item.name, item.score));
+                for(let i=0; i<item.count; i++) {
+                    deck.push(new Ingredient(def.shape, def.color, item.name, item.score));
+                }
             });
-        });
-        BROWN_ITEMS.forEach(item => {
-            for(let i=0; i<item.count; i++) {
-                const randomShape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-                deck.push(new Ingredient(randomShape, 'brown', item.name, item.score));
-            }
         });
         return deck;
     }
@@ -212,19 +276,20 @@
         allIngredients.sort(() => Math.random() - 0.5);
         
         const requiredIngredients = count * 5;
-        potIngredients = allIngredients.slice(0, requiredIngredients);
+        // もし具材が足りない場合は全量使う
+        potIngredients = allIngredients.slice(0, Math.min(requiredIngredients, allIngredients.length));
 
         document.getElementById('setup-screen').classList.add('hidden');
         document.getElementById('game-screen').classList.remove('hidden');
         
-        log(`ゲーム開始！具材数: ${potIngredients.length}`);
+        log(`ゲーム開始！具材数: ${potIngredients.length}個`);
         renderLegend();
         updateBoard();
     }
 
     // 具材選択処理
     function scoopIngredient(ingredient) {
-        if (phase === 3) return; // 終了後はクリック不可
+        if (phase === 3) return; 
 
         const index = potIngredients.findIndex(i => i.id === ingredient.id);
         if (index === -1) return;
@@ -232,15 +297,16 @@
         // 1. 鍋から削除
         potIngredients.splice(index, 1);
 
-        // 2. 正体を明かす (★ここが修正点)
+        // 2. 正体を明かす (即時開示)
         ingredient.isRevealed = true;
 
         // 3. プレイヤーに追加
         const player = players[currentPlayerIndex];
         player.bowl.push(ingredient);
         
-        // ログ出力
-        log(`${player.name} が <strong>【${ingredient.name} (${ingredient.score}点)】</strong> をすくいました`);
+        // 点数フォーマット
+        const ptStr = ingredient.score > 0 ? `+${ingredient.score}` : ingredient.score;
+        log(`${player.name} が <strong>【${ingredient.name} (${ptStr})】</strong> を引きました！`);
 
         // ターン送り
         currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
@@ -258,7 +324,7 @@
         potEl.innerHTML = '';
         document.getElementById('pot-count').innerText = potIngredients.length;
 
-        // 鍋の中身 (isRevealedはfalse)
+        // 鍋の中身 (隠れた状態)
         potIngredients.forEach(ing => {
             potEl.appendChild(ing.getElement((i) => scoopIngredient(i), true));
         });
@@ -275,7 +341,7 @@
             
             const bowlDiv = document.createElement('div');
             p.bowl.forEach(ing => {
-                // 手元の中身 (isRevealedはtrueになっているので名前が出る)
+                // 手元 (開示状態)
                 const ingEl = ing.getElement(null, false);
                 ingEl.style.transform = "scale(0.9)";
                 ingEl.style.margin = "2px";
@@ -285,7 +351,7 @@
             playersEl.appendChild(pDiv);
         });
         
-        document.getElementById('instruction').innerText = `👉 ${players[currentPlayerIndex].name} の番です。`;
+        document.getElementById('instruction').innerText = `👉 ${players[currentPlayerIndex].name} の番です`;
     }
 
     // 結果画面
@@ -300,7 +366,7 @@
         players.sort((a, b) => b.score - a.score);
 
         const resultList = document.getElementById('result-list');
-        let html = '<table border="1" cellpadding="8" style="margin: 0 auto; border-collapse: collapse; width: 95%; background-color:#333;">';
+        let html = '<table border="1" cellpadding="8" style="margin: 0 auto; border-collapse: collapse; width: 95%; background-color:#333; color:#fff;">';
         html += '<tr style="background-color:#444;"><th>順位</th><th>名前</th><th>得点</th><th>内訳</th></tr>';
 
         players.forEach((p, rank) => {
@@ -309,7 +375,7 @@
                 <td style="text-align:center;">${p.name}</td>
                 <td style="font-size:1.3em; font-weight:bold; color:#ffd54f; text-align:center;">${p.score}</td>
                 <td style="text-align:left;">
-                    <div style="display:flex; flex-wrap:wrap; justify-content:center;">
+                   <div style="display:flex; flex-wrap:wrap; justify-content:center;">
                    ${p.bowl.map(i => i.getElement(null, false).outerHTML).join('')}
                    </div>
                 </td>
@@ -319,23 +385,37 @@
         resultList.innerHTML = html;
     }
 
-    // サイドバー描画
+    // サイドバー(得点表)描画
     function renderLegend() {
         const container = document.getElementById('legend-container');
         container.innerHTML = '';
+        
+        // 点数着色ヘルパー
+        const fmt = (score) => {
+            let cls = '';
+            if(score >= 4) cls = 'pt-great';
+            else if(score > 0) cls = 'pt-plus';
+            else if(score <= -4) cls = 'pt-bad';
+            else cls = 'pt-minus';
+            return `<span class="${cls}">${score>0?'+':''}${score}</span>`;
+        };
+
         INGREDIENT_DEFINITIONS.forEach(def => {
             const row = document.createElement('div');
-            row.className = 'legend-row';
-            row.innerHTML = `<div class="ingredient shape-${def.shape} color-${def.color}" style="transform:scale(0.8)"></div>
-                             <div class="legend-info">${def.items.map(i=>`${i.name}(${i.score})`).join(', ')}</div>`;
+            row.className = 'legend-group';
+            
+            // アイコン
+            const iconHtml = `<div class="ingredient shape-${def.shape} color-${def.color}" style="transform:scale(0.8); margin-right:5px; cursor:default;"></div>`;
+            
+            // 内訳テキスト
+            const itemsHtml = def.items.map(i => `${i.name}(${fmt(i.score)})`).join(', ');
+
+            row.innerHTML = `
+                <div class="legend-title">${iconHtml} ${def.label}</div>
+                <div class="legend-items">${itemsHtml}</div>
+            `;
             container.appendChild(row);
         });
-        // 茶色SP
-        const row = document.createElement('div');
-        row.className = 'legend-row';
-        row.innerHTML = `<div class="ingredient shape-sphere color-brown" style="transform:scale(0.8); border-radius:20%">?</div>
-                         <div class="legend-info" style="color:#ffcc80">SP: 黒毛和牛(4), ゴキブリ(-4)</div>`;
-        container.appendChild(row);
     }
 </script>
 </body>
